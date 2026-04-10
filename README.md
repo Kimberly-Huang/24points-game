@@ -2,7 +2,7 @@
 
 一个用纯 HTML/CSS/JS 制作的 24 点卡牌游戏，无需任何依赖，直接在浏览器打开即可游玩。
 
-🎮 **[点击这里在线游玩](https://你的用户名.github.io/24points-game/)**
+🎮 **[点击这里在线游玩](https://Kimberly-Huang.github.io/24points-game/)**
 
 ---
 
