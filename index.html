@@ -1,0 +1,935 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>24点 — 算术卡牌游戏</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Playfair+Display:wght@400;700&family=DM+Mono:wght@400;500&family=Noto+Sans+SC:wght@300;400;500&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --bg: #0e0c0a;
+    --surface: #181512;
+    --card-bg: #faf6f0;
+    --gold: #c9a84c;
+    --gold-light: #e8cc7a;
+    --red: #c0392b;
+    --text: #faf6f0;
+    --text-muted: #8a8070;
+    --border: rgba(201,168,76,0.2);
+    --success: #2d7a4f;
+    --error: #c0392b;
+  }
+
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+  body {
+    font-family: 'Noto Sans SC', sans-serif;
+    background: var(--bg);
+    color: var(--text);
+    min-height: 100vh;
+    overflow-x: hidden;
+  }
+
+  /* Background texture */
+  body::before {
+    content: '';
+    position: fixed;
+    inset: 0;
+    background-image:
+      radial-gradient(ellipse 80% 60% at 20% 10%, rgba(201,168,76,0.06) 0%, transparent 60%),
+      radial-gradient(ellipse 60% 80% at 80% 90%, rgba(192,57,43,0.05) 0%, transparent 60%);
+    pointer-events: none;
+    z-index: 0;
+  }
+
+  /* Grid pattern */
+  body::after {
+    content: '';
+    position: fixed;
+    inset: 0;
+    background-image:
+      linear-gradient(rgba(201,168,76,0.04) 1px, transparent 1px),
+      linear-gradient(90deg, rgba(201,168,76,0.04) 1px, transparent 1px);
+    background-size: 40px 40px;
+    pointer-events: none;
+    z-index: 0;
+  }
+
+  .wrapper {
+    position: relative;
+    z-index: 1;
+    max-width: 680px;
+    margin: 0 auto;
+    padding: 0 24px 60px;
+  }
+
+  /* Header */
+  header {
+    padding: 48px 0 36px;
+    display: flex;
+    align-items: baseline;
+    gap: 20px;
+    border-bottom: 1px solid var(--border);
+    margin-bottom: 40px;
+  }
+
+  .logo {
+    font-family: 'Playfair Display', serif;
+    font-size: 52px;
+    font-weight: 700;
+    color: var(--gold);
+    letter-spacing: -1px;
+    line-height: 1;
+    text-shadow: 0 0 40px rgba(201,168,76,0.3);
+    animation: glow 3s ease-in-out infinite;
+  }
+
+  @keyframes glow {
+    0%, 100% { text-shadow: 0 0 40px rgba(201,168,76,0.3); }
+    50% { text-shadow: 0 0 60px rgba(201,168,76,0.5), 0 0 100px rgba(201,168,76,0.2); }
+  }
+
+  .tagline {
+    font-size: 13px;
+    color: var(--text-muted);
+    letter-spacing: 0.1em;
+    font-weight: 300;
+    line-height: 1.6;
+  }
+
+  .tagline strong {
+    display: block;
+    color: var(--text);
+    font-weight: 400;
+    font-size: 15px;
+    margin-bottom: 2px;
+  }
+
+  /* Stats bar */
+  .stats-bar {
+    display: flex;
+    gap: 2px;
+    margin-bottom: 32px;
+  }
+
+  .stat {
+    flex: 1;
+    background: var(--surface);
+    border: 1px solid var(--border);
+    padding: 14px 16px;
+    text-align: center;
+  }
+
+  .stat:first-child { border-radius: 8px 0 0 8px; }
+  .stat:last-child { border-radius: 0 8px 8px 0; }
+
+  .stat-val {
+    font-family: 'DM Mono', monospace;
+    font-size: 24px;
+    font-weight: 500;
+    color: var(--gold);
+    display: block;
+    line-height: 1;
+    margin-bottom: 4px;
+  }
+
+  .stat-label {
+    font-size: 11px;
+    color: var(--text-muted);
+    letter-spacing: 0.08em;
+  }
+
+  /* Card area */
+  .section-label {
+    font-size: 11px;
+    letter-spacing: 0.15em;
+    color: var(--text-muted);
+    text-transform: uppercase;
+    margin-bottom: 16px;
+  }
+
+  .cards-grid {
+    display: flex;
+    gap: 14px;
+    justify-content: center;
+    margin-bottom: 32px;
+  }
+
+  .playing-card {
+    width: 120px;
+    height: 168px;
+    background: var(--card-bg);
+    border-radius: 10px;
+    border: 1px solid rgba(0,0,0,0.1);
+    box-shadow: 0 4px 24px rgba(0,0,0,0.5), 0 1px 0 rgba(255,255,255,0.1) inset;
+    cursor: pointer;
+    transition: transform 0.2s cubic-bezier(0.34, 1.56, 0.64, 1), box-shadow 0.2s, opacity 0.2s;
+    position: relative;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    user-select: none;
+    flex-shrink: 0;
+  }
+
+  .playing-card:hover:not(.used) {
+    transform: translateY(-8px) rotate(-1deg);
+    box-shadow: 0 16px 40px rgba(0,0,0,0.6), 0 0 0 2px var(--gold);
+  }
+
+  .playing-card.selected {
+    transform: translateY(-12px) rotate(1deg);
+    box-shadow: 0 20px 50px rgba(0,0,0,0.7), 0 0 0 3px var(--gold);
+  }
+
+  .playing-card.used {
+    opacity: 0.2;
+    cursor: default;
+    transform: none !important;
+  }
+
+  .playing-card.flash-success {
+    animation: flash-green 0.4s ease;
+  }
+
+  @keyframes flash-green {
+    0% { box-shadow: 0 4px 24px rgba(0,0,0,0.5); }
+    50% { box-shadow: 0 4px 24px rgba(0,0,0,0.5), 0 0 0 4px #2d7a4f; }
+    100% { box-shadow: 0 4px 24px rgba(0,0,0,0.5); }
+  }
+
+  .card-corner {
+    position: absolute;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    line-height: 1;
+    gap: 1px;
+  }
+
+  .card-corner.tl { top: 8px; left: 10px; }
+  .card-corner.br { bottom: 8px; right: 10px; transform: rotate(180deg); }
+
+  .card-num {
+    font-family: 'Playfair Display', serif;
+    font-size: 18px;
+    font-weight: 700;
+  }
+
+  .card-suit-sm { font-size: 13px; }
+
+  .card-suit-lg {
+    font-size: 42px;
+    line-height: 1;
+  }
+
+  .red-card .card-num,
+  .red-card .card-suit-sm,
+  .red-card .card-suit-lg {
+    color: var(--red);
+  }
+
+  .black-card .card-num,
+  .black-card .card-suit-sm,
+  .black-card .card-suit-lg {
+    color: #1a1008;
+  }
+
+  /* Deal button when no cards */
+  .deal-prompt {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 12px;
+    padding: 40px;
+    margin-bottom: 32px;
+  }
+
+  /* Operator pad */
+  .ops-section { margin-bottom: 24px; }
+
+  .ops-grid {
+    display: grid;
+    grid-template-columns: repeat(6, 1fr);
+    gap: 8px;
+  }
+
+  .op-key {
+    height: 52px;
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    color: var(--text);
+    font-size: 20px;
+    font-family: 'DM Mono', monospace;
+    cursor: pointer;
+    transition: all 0.15s;
+    display: flex; align-items: center; justify-content: center;
+  }
+
+  .op-key:hover {
+    border-color: var(--gold);
+    color: var(--gold);
+    background: rgba(201,168,76,0.06);
+  }
+
+  .op-key.selected {
+    background: rgba(201,168,76,0.15);
+    border-color: var(--gold);
+    color: var(--gold-light);
+    box-shadow: 0 0 16px rgba(201,168,76,0.2);
+  }
+
+  /* Expression display */
+  .expr-section { margin-bottom: 24px; }
+
+  .expr-display {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    padding: 16px 20px;
+    min-height: 60px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+  }
+
+  .expr-text {
+    font-family: 'DM Mono', monospace;
+    font-size: 18px;
+    color: var(--text);
+    flex: 1;
+    word-break: break-all;
+  }
+
+  .expr-placeholder {
+    font-size: 14px;
+    color: var(--text-muted);
+    font-style: italic;
+    font-family: 'Noto Sans SC', sans-serif;
+  }
+
+  .clear-btn {
+    background: none;
+    border: 1px solid rgba(192,57,43,0.3);
+    color: rgba(192,57,43,0.7);
+    font-size: 12px;
+    padding: 4px 10px;
+    border-radius: 4px;
+    cursor: pointer;
+    white-space: nowrap;
+    transition: all 0.15s;
+    font-family: 'Noto Sans SC', sans-serif;
+  }
+
+  .clear-btn:hover {
+    border-color: var(--red);
+    color: var(--red);
+    background: rgba(192,57,43,0.08);
+  }
+
+  /* Actions */
+  .actions { display: flex; gap: 10px; margin-bottom: 20px; }
+
+  .btn-main {
+    flex: 1;
+    height: 52px;
+    background: linear-gradient(135deg, var(--gold) 0%, #a8862e 100%);
+    border: none;
+    border-radius: 8px;
+    color: #0e0c0a;
+    font-size: 15px;
+    font-weight: 500;
+    font-family: 'Noto Sans SC', sans-serif;
+    cursor: pointer;
+    letter-spacing: 0.05em;
+    transition: all 0.15s;
+    box-shadow: 0 4px 20px rgba(201,168,76,0.25);
+  }
+
+  .btn-main:hover {
+    box-shadow: 0 6px 28px rgba(201,168,76,0.4);
+    transform: translateY(-1px);
+  }
+
+  .btn-main:active { transform: translateY(0); }
+
+  .btn-side {
+    height: 52px;
+    padding: 0 20px;
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    color: var(--text);
+    font-size: 14px;
+    font-family: 'Noto Sans SC', sans-serif;
+    cursor: pointer;
+    transition: all 0.15s;
+  }
+
+  .btn-side:hover { border-color: var(--gold-light); color: var(--gold-light); }
+
+  /* Result / feedback */
+  .feedback {
+    padding: 14px 18px;
+    border-radius: 8px;
+    font-size: 14px;
+    display: none;
+    margin-bottom: 16px;
+    animation: slide-in 0.2s ease;
+  }
+
+  @keyframes slide-in {
+    from { opacity: 0; transform: translateY(-6px); }
+    to { opacity: 1; transform: translateY(0); }
+  }
+
+  .feedback.success {
+    display: block;
+    background: rgba(45,122,79,0.15);
+    border: 1px solid rgba(45,122,79,0.4);
+    color: #6ecc96;
+  }
+
+  .feedback.error {
+    display: block;
+    background: rgba(192,57,43,0.12);
+    border: 1px solid rgba(192,57,43,0.35);
+    color: #e07060;
+  }
+
+  .feedback.info {
+    display: block;
+    background: rgba(201,168,76,0.08);
+    border: 1px solid rgba(201,168,76,0.2);
+    color: var(--text-muted);
+  }
+
+  /* Hint */
+  .hint-row {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin-bottom: 16px;
+  }
+
+  .hint-toggle {
+    font-size: 13px;
+    color: var(--text-muted);
+    cursor: pointer;
+    background: none;
+    border: none;
+    font-family: 'Noto Sans SC', sans-serif;
+    transition: color 0.15s;
+    display: none;
+  }
+
+  .hint-toggle:hover { color: var(--gold); }
+
+  .hint-box {
+    font-family: 'DM Mono', monospace;
+    font-size: 14px;
+    color: var(--gold);
+    padding: 12px 16px;
+    background: rgba(201,168,76,0.05);
+    border: 1px solid rgba(201,168,76,0.15);
+    border-radius: 6px;
+    margin-bottom: 16px;
+    display: none;
+    animation: slide-in 0.2s ease;
+  }
+
+  .solution-count {
+    font-size: 13px;
+    color: var(--text-muted);
+  }
+
+  /* Rules section */
+  .rules {
+    margin-top: 40px;
+    padding-top: 28px;
+    border-top: 1px solid var(--border);
+  }
+
+  .rules-title {
+    font-family: 'Playfair Display', serif;
+    font-size: 16px;
+    color: var(--gold);
+    margin-bottom: 16px;
+  }
+
+  .rules-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 12px;
+  }
+
+  .rule-item {
+    padding: 14px;
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    font-size: 13px;
+    color: var(--text-muted);
+    line-height: 1.6;
+  }
+
+  .rule-item strong { color: var(--text); font-weight: 500; display: block; margin-bottom: 2px; }
+
+  /* How to play */
+  .how-to {
+    margin-top: 16px;
+    font-size: 13px;
+    color: var(--text-muted);
+    line-height: 1.8;
+    padding: 16px;
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+  }
+
+  .step { display: flex; gap: 10px; margin-bottom: 4px; }
+  .step-num {
+    font-family: 'DM Mono', monospace;
+    color: var(--gold);
+    font-size: 12px;
+    min-width: 20px;
+    padding-top: 2px;
+  }
+
+  @media (max-width: 520px) {
+    .playing-card { width: 88px; height: 124px; }
+    .card-num { font-size: 15px; }
+    .card-suit-lg { font-size: 32px; }
+    .cards-grid { gap: 8px; }
+    .logo { font-size: 40px; }
+    .ops-grid { grid-template-columns: repeat(3, 1fr); }
+    .rules-grid { grid-template-columns: 1fr; }
+  }
+</style>
+</head>
+<body>
+<div class="wrapper">
+  <header>
+    <div class="logo">24</div>
+    <div class="tagline">
+      <strong>算术卡牌游戏</strong>
+      用四张牌凑出 24，加减乘除随心搭配
+    </div>
+  </header>
+
+  <div class="stats-bar">
+    <div class="stat">
+      <span class="stat-val" id="score">0</span>
+      <div class="stat-label">得分</div>
+    </div>
+    <div class="stat">
+      <span class="stat-val" id="streak">0</span>
+      <div class="stat-label">连胜</div>
+    </div>
+    <div class="stat">
+      <span class="stat-val" id="best">0</span>
+      <div class="stat-label">最高连胜</div>
+    </div>
+    <div class="stat">
+      <span class="stat-val" id="rounds">0</span>
+      <div class="stat-label">已玩局数</div>
+    </div>
+  </div>
+
+  <!-- Cards -->
+  <div class="section-label">当前手牌</div>
+  <div class="cards-grid" id="cards-grid"></div>
+
+  <!-- Ops -->
+  <div class="ops-section">
+    <div class="section-label">运算符</div>
+    <div class="ops-grid">
+      <button class="op-key" data-op="+">+</button>
+      <button class="op-key" data-op="−">−</button>
+      <button class="op-key" data-op="×">×</button>
+      <button class="op-key" data-op="÷">÷</button>
+      <button class="op-key" data-op="(">(</button>
+      <button class="op-key" data-op=")">)</button>
+    </div>
+  </div>
+
+  <!-- Expression -->
+  <div class="expr-section">
+    <div class="section-label">算式构建</div>
+    <div class="expr-display">
+      <div id="expr-text" class="expr-placeholder">先点击一张牌，再选运算符，再点另一张牌…</div>
+      <button class="clear-btn" onclick="clearExpr()">清空</button>
+    </div>
+  </div>
+
+  <!-- Actions -->
+  <div class="actions">
+    <button class="btn-main" onclick="checkAnswer()">验证答案 = 24？</button>
+    <button class="btn-side" onclick="dealCards()">换牌</button>
+    <button class="btn-side" id="undo-btn" onclick="undoLast()">撤回</button>
+  </div>
+
+  <div class="feedback" id="feedback"></div>
+
+  <div class="hint-row">
+    <span class="solution-count" id="sol-count"></span>
+    <button class="hint-toggle" id="hint-toggle" onclick="toggleHint()">显示提示 ▸</button>
+  </div>
+  <div class="hint-box" id="hint-box"></div>
+
+  <!-- Rules -->
+  <div class="rules">
+    <div class="rules-title">游戏规则</div>
+    <div class="rules-grid">
+      <div class="rule-item"><strong>牌面数值</strong>A = 1，J = 11，Q = 12，K = 13，其余同面值</div>
+      <div class="rule-item"><strong>目标</strong>用四张牌的数值，通过加减乘除及括号，算出 24</div>
+      <div class="rule-item"><strong>限制</strong>每张牌只能用一次，所有四张牌都必须用到</div>
+      <div class="rule-item"><strong>经典例题</strong>3, 3, 8, 8 → 8 ÷ (3 − 8÷3)</div>
+    </div>
+    <div class="how-to" style="margin-top:12px">
+      <div class="step"><span class="step-num">01</span><span>点击一张牌（它会升起表示已选中）</span></div>
+      <div class="step"><span class="step-num">02</span><span>点击一个运算符（+ − × ÷）</span></div>
+      <div class="step"><span class="step-num">03</span><span>点击另一张牌，完成一步运算</span></div>
+      <div class="step"><span class="step-num">04</span><span>重复直到四张牌全部用完，再点「验证答案」</span></div>
+      <div class="step"><span class="step-num">05</span><span>括号可随时插入算式，「撤回」可取消上一步</span></div>
+    </div>
+  </div>
+</div>
+
+<script>
+const SUITS = ['♠','♥','♦','♣'];
+const RED = new Set(['♥','♦']);
+const FACE = {1:'A', 11:'J', 12:'Q', 13:'K'};
+
+let cards = [];       // {val, display, suit, used, el}
+let tokens = [];      // expression token objects: {type:'card'|'op'|'paren', text, cardIdx?}
+let selectedCard = null;
+let selectedOp = null;
+let hintVisible = false;
+let allSolutions = [];
+let score = 0, streak = 0, best = 0, rounds = 0;
+
+// ---- Solver ----
+function evaluate(expr) {
+  try {
+    let s = expr.replace(/×/g,'*').replace(/÷/g,'/').replace(/−/g,'-');
+    // Insert * between adjacent closing and opening parens: ")(" → ")*("
+    // Also between number and "(": "6(" → "6*("
+    s = s.replace(/\)\s*\(/g, ')*(');
+    s = s.replace(/(\d)\s*\(/g, '$1*(');
+    s = s.replace(/\)\s*(\d)/g, ')*$1');
+    // eslint-disable-next-line no-new-func
+    let r = Function('"use strict"; return (' + s + ')')();
+    return typeof r === 'number' && isFinite(r) ? r : null;
+  } catch(e) { return null; }
+}
+
+function permutations(arr) {
+  if (arr.length <= 1) return [arr];
+  const res = [];
+  for (let i = 0; i < arr.length; i++) {
+    const rest = [...arr.slice(0,i), ...arr.slice(i+1)];
+    for (const p of permutations(rest)) res.push([arr[i], ...p]);
+  }
+  return res;
+}
+
+function findSolutions(vals) {
+  const ops = ['+','-','*','/'];
+  const structures = [
+    (a,o1,b,o2,c,o3,d) => `((${a}${o1}${b})${o2}${c})${o3}${d}`,
+    (a,o1,b,o2,c,o3,d) => `(${a}${o1}(${b}${o2}${c}))${o3}${d}`,
+    (a,o1,b,o2,c,o3,d) => `(${a}${o1}${b})${o2}(${c}${o3}${d})`,
+    (a,o1,b,o2,c,o3,d) => `${a}${o1}((${b}${o2}${c})${o3}${d})`,
+    (a,o1,b,o2,c,o3,d) => `${a}${o1}(${b}${o2}(${c}${o3}${d}))`,
+  ];
+  const seen = new Set();
+  const results = [];
+  for (const perm of permutations(vals)) {
+    const [a,b,c,d] = perm;
+    for (const o1 of ops) for (const o2 of ops) for (const o3 of ops) {
+      for (const fn of structures) {
+        const expr = fn(a,o1,b,o2,c,o3,d);
+        if (seen.has(expr)) continue;
+        seen.add(expr);
+        try {
+          const r = Function('"use strict"; return (' + expr + ')')();
+          if (Math.abs(r - 24) < 1e-9) {
+            let pretty = expr
+              .replace(/\*/g,'×').replace(/\//g,'÷').replace(/-/g,'−');
+            results.push(pretty);
+          }
+        } catch(e) {}
+      }
+    }
+  }
+  return results;
+}
+
+// ---- UI ----
+function updateStats() {
+  document.getElementById('score').textContent = score;
+  document.getElementById('streak').textContent = streak;
+  document.getElementById('best').textContent = best;
+  document.getElementById('rounds').textContent = rounds;
+}
+
+function dealCards() {
+  // reset state
+  tokens = [];
+  selectedCard = null;
+  selectedOp = null;
+  hintVisible = false;
+  document.querySelectorAll('.op-key').forEach(b => b.classList.remove('selected'));
+  hideFeedback();
+  document.getElementById('hint-box').style.display = 'none';
+  document.getElementById('hint-toggle').style.display = 'none';
+  document.getElementById('sol-count').textContent = '';
+
+  // generate cards ensuring a solution exists
+  let vals, solutions;
+  let attempts = 0;
+  do {
+    vals = [1,2,3,4].map(() => Math.floor(Math.random()*13)+1);
+    solutions = findSolutions(vals);
+    attempts++;
+  } while (solutions.length === 0 && attempts < 50);
+
+  allSolutions = solutions;
+  cards = vals.map(v => {
+    const suit = SUITS[Math.floor(Math.random()*4)];
+    return {val:v, display: FACE[v]||String(v), suit, used:false};
+  });
+  rounds++;
+  updateStats();
+  renderCards();
+  updateExpr();
+  updateSolCount();
+}
+
+function renderCards() {
+  const grid = document.getElementById('cards-grid');
+  grid.innerHTML = '';
+  cards.forEach((c,i) => {
+    const div = document.createElement('div');
+    const isRed = RED.has(c.suit);
+    div.className = 'playing-card ' + (isRed ? 'red-card' : 'black-card') + (c.used ? ' used' : '');
+    div.id = 'card-' + i;
+    div.innerHTML = `
+      <div class="card-corner tl">
+        <div class="card-num">${c.display}</div>
+        <div class="card-suit-sm">${c.suit}</div>
+      </div>
+      <div class="card-suit-lg">${c.suit}</div>
+      <div class="card-corner br">
+        <div class="card-num">${c.display}</div>
+        <div class="card-suit-sm">${c.suit}</div>
+      </div>
+    `;
+    if (!c.used) div.onclick = () => onCardClick(i);
+    grid.appendChild(div);
+  });
+  // restore selected state
+  if (selectedCard !== null && !cards[selectedCard].used) {
+    document.getElementById('card-'+selectedCard).classList.add('selected');
+  }
+}
+
+function onCardClick(i) {
+  if (cards[i].used) return;
+
+  if (selectedCard === i) {
+    selectedCard = null;
+    document.getElementById('card-'+i).classList.remove('selected');
+    updateExpr();
+    return;
+  }
+
+  if (selectedCard !== null && selectedOp !== null) {
+    // complete a step: card1 op card2
+    const c1 = cards[selectedCard];
+    const c2 = cards[i];
+    tokens.push({type:'card', text: c1.display+c1.suit, cardIdx: selectedCard});
+    tokens.push({type:'op', text: selectedOp});
+    tokens.push({type:'card', text: c2.display+c2.suit, cardIdx: i});
+    c1.used = true; c2.used = true;
+    selectedCard = null;
+    selectedOp = null;
+    document.querySelectorAll('.op-key').forEach(b=>b.classList.remove('selected'));
+    renderCards();
+    updateExpr();
+    hideFeedback();
+  } else if (selectedCard !== null) {
+    // switch selection
+    document.getElementById('card-'+selectedCard).classList.remove('selected');
+    selectedCard = i;
+    document.getElementById('card-'+i).classList.add('selected');
+    updateExpr();
+  } else {
+    // first card
+    selectedCard = i;
+    document.getElementById('card-'+i).classList.add('selected');
+    updateExpr();
+  }
+}
+
+document.querySelectorAll('.op-key').forEach(btn => {
+  btn.onclick = () => {
+    const op = btn.dataset.op;
+    if (op === '(' || op === ')') {
+      tokens.push({type:'paren', text: op});
+      updateExpr();
+      return;
+    }
+    document.querySelectorAll('.op-key').forEach(b=>b.classList.remove('selected'));
+    btn.classList.add('selected');
+    selectedOp = op;
+    updateExpr();
+  };
+});
+
+// buildPreview: include pending (not-yet-committed) card and op selections
+function buildPreview() {
+  let parts = tokens.map(t => t.text);
+  if (selectedCard !== null) {
+    const c = cards[selectedCard];
+    parts.push(c.display + c.suit);
+  }
+  if (selectedOp !== null) parts.push(selectedOp);
+  return parts;
+}
+
+function updateExpr() {
+  const el = document.getElementById('expr-text');
+  const parts = buildPreview();
+  if (parts.length === 0) {
+    el.className = 'expr-placeholder';
+    el.textContent = '先点击一张牌，再选运算符，再点另一张牌…';
+  } else {
+    el.className = 'expr-text';
+    el.textContent = parts.join(' ');
+  }
+}
+
+function clearExpr() {
+  tokens = [];
+  selectedCard = null;
+  selectedOp = null;
+  cards.forEach(c => c.used = false);
+  document.querySelectorAll('.op-key').forEach(b=>b.classList.remove('selected'));
+  renderCards();
+  updateExpr();
+  hideFeedback();
+}
+
+function undoLast() {
+  // 1. 先撤销临时选中的运算符
+  if (selectedOp !== null) {
+    selectedOp = null;
+    document.querySelectorAll('.op-key').forEach(b=>b.classList.remove('selected'));
+    updateExpr();
+    return;
+  }
+  // 2. 再撤销临时选中的第一张牌
+  if (selectedCard !== null) {
+    document.getElementById('card-'+selectedCard).classList.remove('selected');
+    selectedCard = null;
+    updateExpr();
+    return;
+  }
+  // 3. 从已提交 tokens 中删最后一个
+  if (tokens.length === 0) return;
+  const last = tokens.pop();
+  if (last.type === 'card') {
+    cards[last.cardIdx].used = false;
+    renderCards();
+  }
+  updateExpr();
+  hideFeedback();
+}
+
+function checkAnswer() {
+  // build expression from tokens (card tokens → their numeric value)
+  const usedCards = tokens.filter(t=>t.type==='card').map(t=>t.cardIdx);
+  const uniqueUsed = new Set(usedCards);
+  if (uniqueUsed.size < 4) {
+    showFeedback('error', '还没用完全部四张牌！请继续构建算式');
+    return;
+  }
+  // build numeric expr
+  let expr = tokens.map(t => {
+    if (t.type === 'card') return cards[t.cardIdx].val;
+    if (t.type === 'op') return t.text;
+    return t.text; // paren
+  }).join('');
+
+  const result = evaluate(expr);
+  if (result === null) {
+    showFeedback('error', '算式有误，请检查括号是否匹配');
+    return;
+  }
+  if (Math.abs(result - 24) < 1e-9) {
+    // success!
+    score += 10 + streak * 2;
+    streak++;
+    if (streak > best) best = streak;
+    updateStats();
+    showFeedback('success', `🎉 正确！${expr.replace(/\*/g,'×').replace(/\//g,'÷').replace(/-/g,'−')} = 24　＋${10 + (streak-1)*2} 分`);
+    // flash cards
+    document.querySelectorAll('.playing-card:not(.used)').forEach(el => el.classList.add('flash-success'));
+    setTimeout(() => dealCards(), 1800);
+  } else {
+    streak = 0;
+    updateStats();
+    showFeedback('error', `结果是 ${+result.toFixed(4)}，不是 24，再想想！`);
+  }
+}
+
+function showFeedback(type, msg) {
+  const el = document.getElementById('feedback');
+  el.className = 'feedback ' + type;
+  el.textContent = msg;
+}
+
+function hideFeedback() {
+  document.getElementById('feedback').className = 'feedback';
+}
+
+function updateSolCount() {
+  const el = document.getElementById('sol-count');
+  const toggle = document.getElementById('hint-toggle');
+  if (allSolutions.length > 0) {
+    el.textContent = `共 ${allSolutions.length} 种解法`;
+    toggle.style.display = 'block';
+    toggle.textContent = '显示提示 ▸';
+    hintVisible = false;
+    document.getElementById('hint-box').style.display = 'none';
+  } else {
+    el.textContent = '';
+    toggle.style.display = 'none';
+  }
+}
+
+function toggleHint() {
+  hintVisible = !hintVisible;
+  const box = document.getElementById('hint-box');
+  const btn = document.getElementById('hint-toggle');
+  if (hintVisible) {
+    box.style.display = 'block';
+    box.textContent = '提示：' + allSolutions[0];
+    btn.textContent = '隐藏提示 ▾';
+  } else {
+    box.style.display = 'none';
+    btn.textContent = '显示提示 ▸';
+  }
+}
+
+// Start!
+dealCards();
+</script>
+</body>
+</html>
